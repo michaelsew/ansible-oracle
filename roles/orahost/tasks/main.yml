@@ -66,17 +66,15 @@
     tags: selinux
 
   - name: Check dns for host
-    command: nslookup {{ ansible_hostname }}
+    command: host {{ ansible_hostname }}
     register: ns
     ignore_errors: True
     changed_when: False
     tags: etchosts
 
   - name: Add host to /etc/hosts if needed
-    #lineinfile: dest=/etc/hosts regexp='.*{{ ansible_fqdn }}$' line="{{ ansible_default_ipv4.address }} {{ ansible_hostname }} {{ ansible_fqdn }}" state=present
     lineinfile: dest=/etc/hosts regexp='.*{{ ansible_fqdn }}$' line="{{ etc_hosts_ip }} {{ ansible_hostname }} {{ ansible_fqdn }}" state=present
-    #when: "'find {{ ansible_hostname }}: NXDOMAIN' in ns.stdout or 'find {{ ansible_hostname }}: SERVFAIL' in ns.stdout or configure_etc_hosts"
-    when: "(': NXDOMAIN' in ns.stdout) or (' No answer' in ns.stdout) or configure_etc_hosts"
+    when: "ns.rc != 0 or configure_etc_hosts"
     tags: etchosts
 
 #  - name: Add local node's ip & hostname to /etc/hosts
@@ -226,7 +224,7 @@
     tags: hostfs
 
   - name: filesystem | create fs
-    filesystem: fstype={{ item.1.fstype }} dev=/dev/{{ item.0.vgname }}/{{ item.1.lvname }}
+    filesystem: fstype={{ item.1.fstype }} dev=/dev/{{ item.0.vgname }}/{{ item.1.lvname }} opts={{ item.1.fsopts | default(omit) }}
     with_subelements:
         - "{{host_fs_layout}}"
         - filesystem
@@ -234,7 +232,7 @@
     tags: hostfs
 
   - name: filesytem | mount dir
-    mount: name={{ item.1.mntp }} src=/dev/{{ item.0.vgname }}/{{ item.1.lvname }} dump=1 passno=2 fstype={{ item.1.fstype }} state=mounted
+    mount: name={{ item.1.mntp }} src=/dev/{{ item.0.vgname }}/{{ item.1.lvname }} dump=1 passno=2 fstype={{ item.1.fstype }} opts={{ item.1.mntopts | default(omit) }} state=mounted
     with_subelements:
         - "{{host_fs_layout}}"
         - filesystem
